@@ -1,0 +1,4 @@
+[package]
+name = "rusty-jack"
+version = "0.1.0"
+authors = ["Tim Caswell <tim@creationix.com>"]
