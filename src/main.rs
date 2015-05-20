@@ -1,3 +1,4 @@
+use std::fmt;
 use std::rc::Rc;
 
 type Error = &'static str;
@@ -12,6 +13,21 @@ enum Code {
     Div(Rc<Code>, Rc<Code>),
     Mul(Rc<Code>, Rc<Code>),
     Neg(Rc<Code>),
+}
+
+impl fmt::Display for Code {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &Code::Integer(n) => write!(f, "{}", n),
+            &Code::Rational(n, d) => write!(f, "{}/{}", n, d),
+            &Code::String(ref s) => write!(f, "'{}'", s),
+            &Code::Add(ref left, ref right) => write!(f, "({} + {})", left, right),
+            &Code::Sub(ref left, ref right) => write!(f, "({} - {})", left, right),
+            &Code::Div(ref left, ref right) => write!(f, "({} / {})", left, right),
+            &Code::Mul(ref left, ref right) => write!(f, "({} * {})", left, right),
+            &Code::Neg(ref num) => write!(f, "-({})", num),
+        }
+    }
 }
 
 // Calculate the greatest common divisor using Euclid's algorithm.
@@ -120,15 +136,15 @@ fn test(left: Code, right: Code) {
     let a = Rc::new(left);
     let b = Rc::new(right);
     let mut e = Rc::new(Code::Add(a.clone(), b.clone()));
-    println!("{:?} = {:?}", e, eval(&e));
+    println!("{} = {:?}", e, eval(&e));
     e = Rc::new(Code::Sub(a.clone(), b.clone()));
-    println!("{:?} = {:?}", e, eval(&e));
+    println!("{} = {:?}", e, eval(&e));
     e = Rc::new(Code::Mul(a.clone(), b.clone()));
-    println!("{:?} = {:?}", e, eval(&e));
+    println!("{} = {:?}", e, eval(&e));
     e = Rc::new(Code::Div(a.clone(), b.clone()));
-    println!("{:?} = {:?}", e, eval(&e));
+    println!("{} = {:?}", e, eval(&e));
     e = Rc::new(Code::Neg(a.clone()));
-    println!("{:?} = {:?}", e, eval(&e));
+    println!("{} = {:?}", e, eval(&e));
 }
 
 fn main() {
@@ -156,6 +172,6 @@ fn main() {
             Rc::new(Code::Integer(5)),
         )),
     );
-    println!("{:?} = {:?}", e, eval(&e));
+    println!("{} = {:?}", e, eval(&e));
 
 }
