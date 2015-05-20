@@ -1,14 +1,17 @@
+use std::rc::Rc;
 
-#[derive(Debug)]
-enum Value {
-  // Numbers in this language can be simple integers or rational.
-  // They are the same to the user and automatically switch to the best
-  // type on every calculation.
-  Integer(i64),
-  Rational(i64, i64),
-  String(String)
-}
 type Error = &'static str;
+
+#[derive(Debug,Clone)]
+enum Code {
+    Integer(i64),
+    Rational(i64, i64),
+    String(String),
+    Add(Rc<Code>, Rc<Code>),
+    Sub(Rc<Code>, Rc<Code>),
+    Div(Rc<Code>, Rc<Code>),
+    Mul(Rc<Code>, Rc<Code>),
+}
 
 // Calculate the greatest common divisor using Euclid's algorithm.
 fn gcd(mut a: i64, mut b: i64) -> i64 {
@@ -21,13 +24,8 @@ fn gcd(mut a: i64, mut b: i64) -> i64 {
     b
 }
 
-#[inline(always)]
-fn new_integer(n: i64) -> Value {
-    Value::Integer(n)
-}
-
 // This normalizes inputs and sometimes even converts to integers.
-fn new_rational(mut n: i64, mut d: i64) -> Value {
+fn new_rational(mut n: i64, mut d: i64) -> Code {
     let g = gcd(n, d);
     n = n / g;
     d = d / g;
@@ -36,16 +34,14 @@ fn new_rational(mut n: i64, mut d: i64) -> Value {
       d = -d;
     }
     if d == 1 {
-        Value::Integer(n)
+        Code::Integer(n)
     }
     else {
-        Value::Rational(n, d)
+        Code::Rational(n, d)
     }
 }
 
-// We could just let new_rational handle the gcd here, but this
-// avoids overflows by dividing the gcd in first.
-fn rational_add(n1: i64, d1: i64, n2: i64, d2: i64) -> Value {
+fn rational_add(n1: i64, d1: i64, n2: i64, d2: i64) -> Code {
   if d1 == d2 {
     // Fast path for common divisors.
     new_rational(n1 + n2, d1)
@@ -54,68 +50,88 @@ fn rational_add(n1: i64, d1: i64, n2: i64, d2: i64) -> Value {
     let g = gcd(d1, d2);
     new_rational(n1 * (d2 / g) + n2 * (d1 / g), d1 / g * d2)
   }
+
 }
 
-fn add(left: &Value, right: &Value) -> Result<Value, Error> {
+fn add(left: &Code, right: &Code) -> Result<Code, Error> {
     match (left, right) {
-        (&Value::Integer(a), &Value::Integer(b)) => Ok(new_integer(a + b)),
-        (&Value::Rational(n, d), &Value::Integer(b)) => Ok(rational_add(n, d, b, 1)),
-        (&Value::Integer(a), &Value::Rational(n, d)) => Ok(rational_add(a, 1, n, d)),
-        (&Value::Rational(n1, d1), &Value::Rational(n2, d2)) => Ok(rational_add(n1, d1, n2, d2)),
+        (&Code::Integer(a), &Code::Integer(b)) => Ok(Code::Integer(a + b)),
+        (&Code::Rational(n, d), &Code::Integer(b)) => Ok(rational_add(n, d, b, 1)),
+        (&Code::Integer(a), &Code::Rational(n, d)) => Ok(rational_add(a, 1, n, d)),
+        (&Code::Rational(n1, d1), &Code::Rational(n2, d2)) => Ok(rational_add(n1, d1, n2, d2)),
         _ => Err("Add requires two numbers"),
     }
 }
 
-fn subtract(left: &Value, right: &Value) -> Result<Value, Error> {
+fn subtract(left: &Code, right: &Code) -> Result<Code, Error> {
     match (left, right) {
-        (&Value::Integer(a), &Value::Integer(b)) => Ok(new_integer(a - b)),
-        (&Value::Rational(n, d), &Value::Integer(b)) => Ok(rational_add(n, d, -b, 1)),
-        (&Value::Integer(a), &Value::Rational(n, d)) => Ok(rational_add(a, 1, -n, d)),
-        (&Value::Rational(n1, d1), &Value::Rational(n2, d2)) => Ok(rational_add(n1, d1, -n2, d2)),
+        (&Code::Integer(a), &Code::Integer(b)) => Ok(Code::Integer(a - b)),
+        (&Code::Rational(n, d), &Code::Integer(b)) => Ok(rational_add(n, d, -b, 1)),
+        (&Code::Integer(a), &Code::Rational(n, d)) => Ok(rational_add(a, 1, -n, d)),
+        (&Code::Rational(n1, d1), &Code::Rational(n2, d2)) => Ok(rational_add(n1, d1, -n2, d2)),
         _ => Err("Subtract requires two numbers"),
     }
 }
 
-fn divide(left: &Value, right: &Value) -> Result<Value, Error> {
+fn multiply(left: &Code, right: &Code) -> Result<Code, Error> {
     match (left, right) {
-        (&Value::Integer(a), &Value::Integer(b)) => Ok(new_rational(a, b)),
-        (&Value::Rational(n, d), &Value::Integer(b)) => Ok(new_rational(n, d * b)),
-        (&Value::Integer(a), &Value::Rational(n, d)) => Ok(new_rational(a * d, n)),
-        (&Value::Rational(n1, d1), &Value::Rational(n2, d2)) => Ok(new_rational(n1 * d2, d1 * n2)),
-        _ => Err("Divide requires two numbers"),
-    }
-}
-
-fn multiply(left: &Value, right: &Value) -> Result<Value, Error> {
-    match (left, right) {
-        (&Value::Integer(a), &Value::Integer(b)) => Ok(new_integer(a * b)),
-        (&Value::Rational(n, d), &Value::Integer(b)) => Ok(new_rational(n * b, d)),
-        (&Value::Integer(a), &Value::Rational(n, d)) => Ok(new_rational(a * n, d)),
-        (&Value::Rational(n1, d1), &Value::Rational(n2, d2)) => Ok(new_rational(n1 * n2, d1 * d2)),
+        (&Code::Integer(a), &Code::Integer(b)) => Ok(Code::Integer(a * b)),
+        (&Code::Rational(n, d), &Code::Integer(b)) => Ok(new_rational(n * b, d)),
+        (&Code::Integer(a), &Code::Rational(n, d)) => Ok(new_rational(a * n, d)),
+        (&Code::Rational(n1, d1), &Code::Rational(n2, d2)) => Ok(new_rational(n1 * n2, d1 * d2)),
         _ => Err("Multiply requires two numbers"),
     }
 }
 
-fn test(a: Value, b: Value) {
-    println!("{:?} / {:?} = {:?}", a, b, divide(&a, &b));
-    println!("{:?} * {:?} = {:?}", a, b, multiply(&a, &b));
-    println!("{:?} + {:?} = {:?}", a, b, add(&a, &b));
-    println!("{:?} - {:?} = {:?}", a, b, subtract(&a, &b));
+fn divide(left: &Code, right: &Code) -> Result<Code, Error> {
+    match (left, right) {
+        (&Code::Integer(a), &Code::Integer(b)) => Ok(Code::Rational(a, b)),
+        (&Code::Rational(n, d), &Code::Integer(b)) => Ok(new_rational(n, d * b)),
+        (&Code::Integer(a), &Code::Rational(n, d)) => Ok(new_rational(a * d, n)),
+        (&Code::Rational(n1, d1), &Code::Rational(n2, d2)) => Ok(new_rational(n1 * d2, d1 * n2)),
+        _ => Err("Divide requires two numbers"),
+    }
+}
+
+
+fn eval(expr: &Code) -> Result<Code, Error> {
+    match expr {
+        &Code::Add(ref left, ref right) => add(left, right),
+        &Code::Sub(ref left, ref right) => subtract(left, right),
+        &Code::Mul(ref left, ref right) => multiply(left, right),
+        &Code::Div(ref left, ref right) => divide(left, right),
+        n @ &Code::Integer(_) => Ok(n.clone()),
+        n @ &Code::Rational(_, _) => Ok(n.clone()),
+        n @ &Code::String(_) => Ok(n.clone()),
+    }
+}
+
+fn test(left: Code, right: Code) {
+    let a = Rc::new(left);
+    let b = Rc::new(right);
+    let mut e = Rc::new(Code::Add(a.clone(), b.clone()));
+    println!("{:?} = {:?}", e, eval(&e));
+    e = Rc::new(Code::Sub(a.clone(), b.clone()));
+    println!("{:?} = {:?}", e, eval(&e));
+    e = Rc::new(Code::Mul(a.clone(), b.clone()));
+    println!("{:?} = {:?}", e, eval(&e));
+    e = Rc::new(Code::Div(a.clone(), b.clone()));
+    println!("{:?} = {:?}", e, eval(&e));
 }
 
 fn main() {
-    test(new_integer(44), new_integer(14));
-    test(new_integer(14), new_integer(44));
-    test(new_integer(44), new_integer(-14));
-    test(new_integer(14), new_integer(-44));
-    test(new_integer(-44), new_integer(14));
-    test(new_integer(-14), new_integer(44));
-    test(new_integer(-44), new_integer(-14));
-    test(new_integer(-14), new_integer(-44));
+    test(Code::Integer(44), Code::Integer(14));
+    test(Code::Integer(14), Code::Integer(44));
+    test(Code::Integer(44), Code::Integer(-14));
+    test(Code::Integer(14), Code::Integer(-44));
+    test(Code::Integer(-44), Code::Integer(14));
+    test(Code::Integer(-14), Code::Integer(44));
+    test(Code::Integer(-44), Code::Integer(-14));
+    test(Code::Integer(-14), Code::Integer(-44));
     test(new_rational(1, 2), new_rational(2, 1));
     test(new_rational(2, 1), new_rational(1, 2));
     test(new_rational(1, 2), new_rational(1, 2));
     test(new_rational(2, 2), new_rational(2, 1));
-    test(Value::String(str::to_string("Input string")),
+    test(Code::String(str::to_string("Input string")),
          new_rational(2, 1));
 }
