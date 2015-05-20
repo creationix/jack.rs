@@ -4,15 +4,41 @@ use std::rc::Rc;
 type Error = &'static str;
 
 #[derive(Debug,Clone)]
-enum Code {
-    Integer(i64),
-    Rational(i64, i64),
-    String(String),
+enum Op {
     Add(Rc<Code>, Rc<Code>),
     Sub(Rc<Code>, Rc<Code>),
     Div(Rc<Code>, Rc<Code>),
     Mul(Rc<Code>, Rc<Code>),
     Neg(Rc<Code>),
+}
+
+#[derive(Debug,Clone)]
+enum Code {
+    Integer(i64),
+    Rational(i64, i64),
+    String(String),
+    Op(Op),
+}
+
+fn binopfmt(f: &mut fmt::Formatter, left: &Code, right: &Code, op: &'static str) -> fmt::Result {
+    try!(match left {
+        &Code::Op(_) => write!(f, "({})", left),
+        _ => write!(f, "{}", left)
+    });
+    try!(write!(f, " {} ", op));
+    match right {
+        &Code::Op(_) => write!(f, "({})", right),
+        _ => write!(f, "{}", right)
+    }
+}
+
+fn negfmt(f: &mut fmt::Formatter, num: &Code) -> fmt::Result {
+    match num {
+        &Code::Integer(n) if n < 0 => write!(f, "-({})", num),
+        &Code::Rational(n, _) if n < 0 => write!(f, "-({})", num),
+        &Code::Op(_) => write!(f, "-({})", num),
+        _ => write!(f, "-{}", num),
+    }
 }
 
 impl fmt::Display for Code {
@@ -21,11 +47,14 @@ impl fmt::Display for Code {
             &Code::Integer(n) => write!(f, "{}", n),
             &Code::Rational(n, d) => write!(f, "{}/{}", n, d),
             &Code::String(ref s) => write!(f, "'{}'", s),
-            &Code::Add(ref left, ref right) => write!(f, "({} + {})", left, right),
-            &Code::Sub(ref left, ref right) => write!(f, "({} - {})", left, right),
-            &Code::Div(ref left, ref right) => write!(f, "({} / {})", left, right),
-            &Code::Mul(ref left, ref right) => write!(f, "({} * {})", left, right),
-            &Code::Neg(ref num) => write!(f, "-({})", num),
+            &Code::Op(ref op) => match op {
+                &Op::Add(ref left, ref right) => binopfmt(f, left, right, "+"),
+                &Op::Sub(ref left, ref right) => binopfmt(f, left, right, "-"),
+                &Op::Div(ref left, ref right) => binopfmt(f, left, right, "/"),
+                &Op::Mul(ref left, ref right) => binopfmt(f, left, right, "*"),
+                &Op::Neg(ref num) => negfmt(f, num),
+
+            }
         }
     }
 }
@@ -121,29 +150,29 @@ fn negate(num: &Code) -> Result<Code, Error> {
 
 fn eval(expr: &Code) -> Result<Code, Error> {
     match expr {
-        &Code::Add(ref left, ref right) => add(left, right),
-        &Code::Sub(ref left, ref right) => subtract(left, right),
-        &Code::Mul(ref left, ref right) => multiply(left, right),
-        &Code::Div(ref left, ref right) => divide(left, right),
-        &Code::Neg(ref num) => negate(num),
-        n @ &Code::Integer(_) => Ok(n.clone()),
-        n @ &Code::Rational(_, _) => Ok(n.clone()),
-        n @ &Code::String(_) => Ok(n.clone()),
+        &Code::Op(ref op) => match op {
+            &Op::Add(ref left, ref right) => add(left, right),
+            &Op::Sub(ref left, ref right) => subtract(left, right),
+            &Op::Mul(ref left, ref right) => multiply(left, right),
+            &Op::Div(ref left, ref right) => divide(left, right),
+            &Op::Neg(ref num) => negate(num),
+        },
+        n => Ok(n.clone()),
     }
 }
 
 fn test(left: Code, right: Code) {
     let a = Rc::new(left);
     let b = Rc::new(right);
-    let mut e = Rc::new(Code::Add(a.clone(), b.clone()));
+    let mut e = Rc::new(Code::Op(Op::Add(a.clone(), b.clone())));
     println!("{} = {:?}", e, eval(&e));
-    e = Rc::new(Code::Sub(a.clone(), b.clone()));
+    e = Rc::new(Code::Op(Op::Sub(a.clone(), b.clone())));
     println!("{} = {:?}", e, eval(&e));
-    e = Rc::new(Code::Mul(a.clone(), b.clone()));
+    e = Rc::new(Code::Op(Op::Mul(a.clone(), b.clone())));
     println!("{} = {:?}", e, eval(&e));
-    e = Rc::new(Code::Div(a.clone(), b.clone()));
+    e = Rc::new(Code::Op(Op::Div(a.clone(), b.clone())));
     println!("{} = {:?}", e, eval(&e));
-    e = Rc::new(Code::Neg(a.clone()));
+    e = Rc::new(Code::Op(Op::Neg(a.clone())));
     println!("{} = {:?}", e, eval(&e));
 }
 
@@ -162,16 +191,16 @@ fn main() {
     test(new_rational(2, 2), new_rational(2, 1));
     test(Code::String(str::to_string("Input string")),
          new_rational(2, 1));
-    let e = Code::Div(
-        Rc::new(Code::Add(
+    let e = Code::Op(Op::Div(
+        Rc::new(Code::Op(Op::Add(
             Rc::new(Code::Rational(1, 2)),
             Rc::new(Code::Rational(1, 3)),
-        )),
-        Rc::new(Code::Sub(
+        ))),
+        Rc::new(Code::Op(Op::Sub(
             Rc::new(Code::Integer(2)),
             Rc::new(Code::Integer(5)),
-        )),
-    );
+        ))),
+    ));
     println!("{} = {:?}", e, eval(&e));
 
 }
