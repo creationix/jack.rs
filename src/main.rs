@@ -86,7 +86,7 @@ fn multiply(left: &Code, right: &Code) -> Result<Code, Error> {
 
 fn divide(left: &Code, right: &Code) -> Result<Code, Error> {
     match (try!(eval(left)), try!(eval(right))) {
-        (Code::Integer(a), Code::Integer(b)) => Ok(Code::Rational(a, b)),
+        (Code::Integer(a), Code::Integer(b)) => Ok(new_rational(a, b)),
         (Code::Rational(n, d), Code::Integer(b)) => Ok(new_rational(n, d * b)),
         (Code::Integer(a), Code::Rational(n, d)) => Ok(new_rational(a * d, n)),
         (Code::Rational(n1, d1), Code::Rational(n2, d2)) => Ok(new_rational(n1 * d2, d1 * n2)),
