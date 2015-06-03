@@ -1,0 +1,113 @@
+-- Standard lisp style syntax, but each line is assumed to be wrapped in parens
+print "Hello World"
+
+-- Loop 10 times with i changing from 0 to 9
+-- Indent means to continue parent list, but each line is own sub-list
+for [i 10]
+  print i
+
+-- Loop over the list
+for [name names]
+  print name
+
+-- Nested loops using → syntax
+-- → means to assume everything afterwards is indented
+for [y 10] → for [x 10]
+  print x y
+
+-- Lines starting with @ are not wrapped as lists
+def fib → λ [n]
+  if (n ≤ 2) 1
+    @ ([fib (n - 1)] + [fib (n - 2)])
+
+-- Object syntax
+obj
+  name "Tim"
+  age 33
+
+-- Object set, get
+
+-- Sample program: maze generator
+-- Sample output for 3x3 maze
+
+-- ██████████████
+-- ██      ██  ██
+-- ██  ██████  ██
+-- ██          ██
+-- ██  ██  ██████
+-- ██  ██      ██
+-- ██████████████
+
+def width 30
+def height 30
+def size (width × height)
+
+-- Cells point to parent
+def cells → map [i size] → table
+  index i
+  parent null
+
+-- Walls flag right and down are initially true
+def walls → map [i size] → table
+  right true
+  down true
+
+-- Define the sequence of index and right/left
+-- parens means swap first two items (infix notation)
+def ww (width - 1)
+def hh (height - 1)
+
+-- Create a list of actions to perform in shuffled order
+def sequence → shuffle → concat
+  map-if [i size] ((i % width) < ww) → table
+    index i
+    direction right
+  map-if [i size] ((i ÷ width) < hh) → table
+    index i
+    direction down
+
+-- Find the root of a set cell -> cell
+def find-root → λ [cell] → if cell.parent
+  find-root cell.parent
+  @ cell
+
+for [item sequence]
+  def direction item.direction
+  def root → find-root (cells . i)
+  def horizontal → ? (item . 0)
+
+  def other → find-root (cells . (i + [? (item . 0) 1 width)))
+  (if (≠ (. root 0) (. other 0))
+    (. root 1 other)
+    (. (. walls i) (? (. item 0) 0 1) false)
+  )
+)
+
+def w (width × 2)
+def h (height × 2)
+join "\n" → map [y (h + 1)]
+  join "" → map [x (w + 1)]
+    ¿ "  " "██" → or
+      -- Four outer edges are always true
+      = x 0
+      = y 0
+      = x w
+      = y h
+      -- Inner cells are more complicated
+      ? (y % 2)
+        ? (x % 2)
+           -- cell middle
+          false
+          -- cell right
+          (. (. walls (+ (÷ (- x 1) 2) (× (÷ y 2) width))) 0)
+        )
+        (? (% x 2)
+          -- cell down
+          (. (. walls (+ (÷ x 2) (× (÷ (- y 1) 2) width))) 1)
+          -- cell corner
+          true
+        )
+      )
+    ))
+  ))
+))
