@@ -3,14 +3,16 @@ use std::mem;
 use std::collections;
 extern crate bytes;
 
+#[macro_use]
+extern crate nom;
+
 #[allow(dead_code)]
-#[derive(Clone)]
 enum Value {
     Nil,
     True,
     False,
     Integer(i64),
-    Rational(Rc<(i64, i64)>),
+    Rational(i64, i64),
     String(Rc<String>),
     Buffer(Rc<bytes::Buf>),
     Pair(Rc<(Value, Value)>),
@@ -24,5 +26,5 @@ enum Value {
 }
 
 fn main() {
-    println!("{}", mem::size_of::<Value>());
+    println!("Value is {} bytes wide.", mem::size_of::<Value>());
 }

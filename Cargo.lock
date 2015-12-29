@@ -3,10 +3,16 @@ name = "rusty-jack"
 version = "0.1.0"
 dependencies = [
  "bytes 0.3.0 (git+https://github.com/carllerche/bytes)",
+ "nom 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "bytes"
 version = "0.3.0"
 source = "git+https://github.com/carllerche/bytes#12dfc417ce3de87ca0ae867636fcb9faeccdb242"
+
+[[package]]
+name = "nom"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 

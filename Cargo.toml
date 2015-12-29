@@ -5,3 +5,5 @@ authors = ["Tim Caswell <tim@creationix.com>"]
 
 [dependencies.bytes]
 git = "https://github.com/carllerche/bytes"
+[dependencies]
+nom = "~1.0.0"
