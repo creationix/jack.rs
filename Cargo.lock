@@ -1,4 +1,12 @@
 [root]
 name = "rusty-jack"
 version = "0.1.0"
+dependencies = [
+ "bytes 0.3.0 (git+https://github.com/carllerche/bytes)",
+]
+
+[[package]]
+name = "bytes"
+version = "0.3.0"
+source = "git+https://github.com/carllerche/bytes#12dfc417ce3de87ca0ae867636fcb9faeccdb242"
 
